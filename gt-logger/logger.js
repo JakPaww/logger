@@ -106,7 +106,7 @@ const fetchAndSave = async () => {
     ];
 
     // --- LOOP SETUP ---
-    const LOOP_INTERVAL_MS = 30 * 1000; // 30 Detik
+    const LOOP_INTERVAL_MS = 15 * 1000; // 30 Detik
     const AUTO_STOP_MS = 14.5 * 60 * 1000; // 14.5 Menit (Biar ga overlap sama jadwal Cron 15 menit)
 
     const runBot = async () => {
@@ -162,3 +162,4 @@ const fetchAndSave = async () => {
 };
 
 fetchAndSave();
+
