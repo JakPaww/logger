@@ -21,37 +21,53 @@ const db = getFirestore(app);
 const fetchAndSave = async () => {
     console.log("----------------------------------------");
     console.log("Bot started at:", new Date().toLocaleString());
-    
+
     let playerCount = 0;
     let success = false;
 
     // Strategies / Sources (Sama seperti website)
     const strategies = [
         async () => {
-             console.log("Trying Strategy 1: Vercel API...");
-             const r = await axios.get('https://gt-tool-seven.vercel.app/api/gt-status');
-             if (r.data.success && r.data.data.online_user) return parseInt(r.data.data.online_user);
-             throw new Error('API Response Invalid');
+            console.log("Trying Strategy 1: Vercel API...");
+            const r = await axios.get('https://gt-tool-seven.vercel.app/api/gt-status');
+            if (r.data.success && r.data.data.online_user) return parseInt(r.data.data.online_user);
+            throw new Error('API Response Invalid');
         },
         async () => {
-             console.log("Trying Strategy 2: AllOrigins...");
-             const r = await axios.get('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://growtopiagame.com/detail'));
-             if (r.data.online_user) return parseInt(r.data.online_user);
-             throw new Error('API Response Invalid');
+            console.log("Trying Strategy 2: AllOrigins...");
+            const r = await axios.get('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://growtopiagame.com/detail'));
+            if (r.data.online_user) return parseInt(r.data.online_user);
+            throw new Error('API Response Invalid');
         }
     ];
 
-    for (let strategy of strategies) {
-        try {
-            playerCount = await strategy();
-            success = true;
-            console.log("✅ Success! Online Players:", playerCount);
-            break;
-        } catch (e) {
-            console.log("❌ Strategy failed:", e.message);
+    // --- RETRY LOOP ---
+    const MAX_RETRIES = 10;
+    const RETRY_DELAY_MS = 5000; // 5 detik
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        console.log(`[Attempt ${attempt}/${MAX_RETRIES}] Fetching data...`);
+
+        for (let strategy of strategies) {
+            try {
+                playerCount = await strategy();
+                success = true;
+                console.log("✅ Success! Online Players:", playerCount);
+                break; // Break strategy loop
+            } catch (e) {
+                console.log(`⚠️ Strategy failed: ${e.message}`);
+            }
+        }
+
+        if (success) break; // Break retry loop if successful
+
+        if (attempt < MAX_RETRIES) {
+            console.log(`❌ All strategies failed for attempt ${attempt}. Retrying in ${RETRY_DELAY_MS / 1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        } else {
+            console.error("❌ ALL RETRIES FAILED. Giving up.");
         }
     }
-
     if (success) {
         try {
             console.log("Saving to Firestore...");
@@ -67,7 +83,7 @@ const fetchAndSave = async () => {
     } else {
         console.error("❌ All fetch strategies failed.");
     }
-    
+
     console.log("Bot finished.");
     console.log("----------------------------------------");
     process.exit(0);
