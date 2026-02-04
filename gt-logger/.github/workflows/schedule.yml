@@ -27,3 +27,4 @@ jobs:
         run: |
           cd gt-logger
           node logger.js
+
