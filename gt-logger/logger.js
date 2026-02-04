@@ -34,6 +34,17 @@ const fetchAndSave = async () => {
 
     // Strategies / Sources (Sama seperti website)
     const strategies = [
+        // 0. Direct Access (Paling Cepat & Stabil untuk Node.js)
+        async () => {
+            console.log("Trying Strategy 0: Direct Connection...");
+            const r = await axios.get('https://growtopiagame.com/detail', {
+                headers: HEADERS,
+                timeout: 5000
+            });
+            // Response dari server biasanya JSON object
+            if (r.data && r.data.online_user) return parseInt(r.data.online_user);
+            throw new Error('API Response Invalid');
+        },
         // 1. AllOrigins
         async () => {
             console.log("Trying Strategy 1: AllOrigins...");
