@@ -25,18 +25,41 @@ const fetchAndSave = async () => {
     let playerCount = 0;
     let success = false;
 
+    // Headers to mimic browser
+    const HEADERS = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Referer': 'https://growtopiagame.com/'
+    };
+
     // Strategies / Sources (Sama seperti website)
     const strategies = [
+        // 1. AllOrigins
         async () => {
-            console.log("Trying Strategy 1: Vercel API...");
-            const r = await axios.get('https://gt-tool-seven.vercel.app/api/gt-status');
-            if (r.data.success && r.data.data.online_user) return parseInt(r.data.data.online_user);
+            console.log("Trying Strategy 1: AllOrigins...");
+            const r = await axios.get('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://growtopiagame.com/detail') + '&t=' + Date.now(), { headers: HEADERS });
+            if (r.data && r.data.online_user) return parseInt(r.data.online_user);
             throw new Error('API Response Invalid');
         },
+        // 2. ThingProxy
         async () => {
-            console.log("Trying Strategy 2: AllOrigins...");
-            const r = await axios.get('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://growtopiagame.com/detail'));
-            if (r.data.online_user) return parseInt(r.data.online_user);
+            console.log("Trying Strategy 2: ThingProxy...");
+            const r = await axios.get('https://thingproxy.freeboard.io/fetch/' + encodeURIComponent('https://growtopiagame.com/detail'), { headers: HEADERS });
+            if (r.data && r.data.online_user) return parseInt(r.data.online_user);
+            throw new Error('API Response Invalid');
+        },
+        // 3. CorsProxy.io
+        async () => {
+            console.log("Trying Strategy 3: CorsProxy.io...");
+            const r = await axios.get('https://corsproxy.io/?' + encodeURIComponent('https://growtopiagame.com/detail'), { headers: HEADERS });
+            if (r.data && r.data.online_user) return parseInt(r.data.online_user);
+            throw new Error('API Response Invalid');
+        },
+        // 4. Vercel API (Backup)
+        async () => {
+            console.log("Trying Strategy 4: Vercel API...");
+            const r = await axios.get('https://gt-tool-seven.vercel.app/api/gt-status');
+            if (r.data.success && r.data.data.online_user) return parseInt(r.data.data.online_user);
             throw new Error('API Response Invalid');
         }
     ];
