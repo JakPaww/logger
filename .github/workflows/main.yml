@@ -1,115 +1,29 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
-import axios from "axios";
+name: Server Logger Bot
 
-// --- CONFIG ---
-// Menggunakan config yang sama dengan website
-const firebaseConfig = {
-    apiKey: process.env.FIREBASE_API_KEY || "AIzaSyDJ7L7-xKPVnynLua8lVXQCQLJL139vtlo",
-    authDomain: "gt-tools-627f9.firebaseapp.com",
-    projectId: "gt-tools-627f9",
-    storageBucket: "gt-tools-627f9.firebasestorage.app",
-    messagingSenderId: "633849365353",
-    appId: "1:633849365353:web:ed852dc913a01d8fbc73f8",
-    measurementId: "G-NV098SR8V2"
-};
+on:
+  schedule:
+    - cron: '*/15 * * * *' # Jalan tiap 15 menit
+  workflow_dispatch: # Bisa dijalankan manual
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+jobs:
+  log-status:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-const fetchAndSave = async () => {
-    console.log("----------------------------------------");
-    console.log("Bot started at:", new Date().toLocaleString());
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
 
-    let playerCount = 0;
-    let success = false;
+      - name: Install Dependencies
+        run: |
+          cd gt-logger
+          npm install
 
-    // Headers to mimic browser
-    const HEADERS = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Referer': 'https://growtopiagame.com/'
-    };
-
-    // Strategies / Sources (Sama seperti website)
-    const strategies = [
-        // 1. AllOrigins
-        async () => {
-            console.log("Trying Strategy 1: AllOrigins...");
-            const r = await axios.get('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://growtopiagame.com/detail') + '&t=' + Date.now(), { headers: HEADERS });
-            if (r.data && r.data.online_user) return parseInt(r.data.online_user);
-            throw new Error('API Response Invalid');
-        },
-        // 2. ThingProxy
-        async () => {
-            console.log("Trying Strategy 2: ThingProxy...");
-            const r = await axios.get('https://thingproxy.freeboard.io/fetch/' + encodeURIComponent('https://growtopiagame.com/detail'), { headers: HEADERS });
-            if (r.data && r.data.online_user) return parseInt(r.data.online_user);
-            throw new Error('API Response Invalid');
-        },
-        // 3. CorsProxy.io
-        async () => {
-            console.log("Trying Strategy 3: CorsProxy.io...");
-            const r = await axios.get('https://corsproxy.io/?' + encodeURIComponent('https://growtopiagame.com/detail'), { headers: HEADERS });
-            if (r.data && r.data.online_user) return parseInt(r.data.online_user);
-            throw new Error('API Response Invalid');
-        },
-        // 4. Vercel API (Backup)
-        async () => {
-            console.log("Trying Strategy 4: Vercel API...");
-            const r = await axios.get('https://gt-tool-seven.vercel.app/api/gt-status');
-            if (r.data.success && r.data.data.online_user) return parseInt(r.data.data.online_user);
-            throw new Error('API Response Invalid');
-        }
-    ];
-
-    // --- RETRY LOOP ---
-    const MAX_RETRIES = 10;
-    const RETRY_DELAY_MS = 5000; // 5 detik
-
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        console.log(`[Attempt ${attempt}/${MAX_RETRIES}] Fetching data...`);
-
-        for (let strategy of strategies) {
-            try {
-                playerCount = await strategy();
-                success = true;
-                console.log("✅ Success! Online Players:", playerCount);
-                break; // Break strategy loop
-            } catch (e) {
-                console.log(`⚠️ Strategy failed: ${e.message}`);
-            }
-        }
-
-        if (success) break; // Break retry loop if successful
-
-        if (attempt < MAX_RETRIES) {
-            console.log(`❌ All strategies failed for attempt ${attempt}. Retrying in ${RETRY_DELAY_MS / 1000}s...`);
-            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-        } else {
-            console.error("❌ ALL RETRIES FAILED. Giving up.");
-        }
-    }
-    if (success) {
-        try {
-            console.log("Saving to Firestore...");
-            await addDoc(collection(db, "server_pings"), {
-                online: playerCount,
-                timestamp: serverTimestamp() // Gunakan server timestamp asli
-            });
-            console.log("✅ Data saved successfully!");
-        } catch (e) {
-            console.error("❌ Firestore Save Error:", e.message);
-            // Don't crash process, just log
-        }
-    } else {
-        console.error("❌ All fetch strategies failed.");
-    }
-
-    console.log("Bot finished.");
-    console.log("----------------------------------------");
-    process.exit(0);
-};
-
-fetchAndSave();
+      - name: Run Logger
+        run: |
+          cd gt-logger
+          node logger.js
