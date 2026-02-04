@@ -107,6 +107,7 @@ const fetchAndSave = async () => {
 
     // --- LOOP SETUP ---
     const LOOP_INTERVAL_MS = 30 * 1000; // 30 Detik
+    const AUTO_STOP_MS = 14.5 * 60 * 1000; // 14.5 Menit (Biar ga overlap sama jadwal Cron 15 menit)
 
     const runBot = async () => {
         console.log(`\n⏰ [${new Date().toLocaleTimeString()}] Starting check...`);
@@ -161,10 +162,15 @@ const fetchAndSave = async () => {
     runBot();
 
     // Loop
-    setInterval(runBot, LOOP_INTERVAL_MS);
+    const loopId = setInterval(runBot, LOOP_INTERVAL_MS);
 
-    console.log(`Generate status logger started... Running every ${LOOP_INTERVAL_MS / 1000}s`);
-    // Keep process alive
+    // AUTO STOP untuk GitHub Actions
+    console.log(`🚀 Logger started! Running every 30s for ${AUTO_STOP_MS / 60000} mins.`);
+    setTimeout(() => {
+        console.log("🛑 Auto-stop limit reached (prevent overlap). Exiting...");
+        clearInterval(loopId);
+        process.exit(0);
+    }, AUTO_STOP_MS);
 };
 
 fetchAndSave();
