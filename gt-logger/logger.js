@@ -25,11 +25,19 @@ const fetchAndSave = async () => {
     let playerCount = 0;
     let success = false;
 
-    // Headers to mimic browser
+    // Headers to mimic browser (Full Chrome Headers)
     const HEADERS = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Referer': 'https://growtopiagame.com/'
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate', // Node.js might struggle with 'br' without external libs
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Cache-Control': 'max-age=0'
     };
 
     // Strategies / Sources (Sama seperti website)
@@ -37,13 +45,35 @@ const fetchAndSave = async () => {
         // 0. Direct Access (Paling Cepat & Stabil untuk Node.js)
         async () => {
             console.log("Trying Strategy 0: Direct Connection...");
-            const r = await axios.get('https://growtopiagame.com/detail', {
-                headers: HEADERS,
-                timeout: 5000
-            });
-            // Response dari server biasanya JSON object
-            if (r.data && r.data.online_user) return parseInt(r.data.online_user);
-            throw new Error('API Response Invalid');
+            try {
+                const r = await axios.get('https://growtopiagame.com/detail', {
+                    headers: HEADERS,
+                    timeout: 5000,
+                    validateStatus: status => status < 500 // Accept 403/400 to debug
+                });
+
+                // Debugging Info if not successful immediately
+                if (r.status !== 200) {
+                    console.log(`⚠️ Status Code: ${r.status}`);
+                }
+
+                let data = r.data;
+                if (typeof data === 'string') {
+                    // Try to parse if it's a string
+                    try { data = JSON.parse(data); } catch (e) { }
+                }
+
+                if (data && data.online_user) {
+                    return parseInt(data.online_user);
+                } else {
+                    // Log the first 100 chars to see what we got (Cloudflare page?)
+                    const preview = typeof r.data === 'string' ? r.data.substring(0, 100).replace(/\n/g, ' ') : JSON.stringify(r.data);
+                    console.log(`⚠️ Invalid Response Content: ${preview}...`);
+                }
+            } catch (e) {
+                console.log(`⚠️ Direct Connect Error: ${e.message}`);
+            }
+            throw new Error('API Response Invalid / Blocked');
         },
         // 1. AllOrigins
         async () => {
