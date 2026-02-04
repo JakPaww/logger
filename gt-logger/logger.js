@@ -105,52 +105,66 @@ const fetchAndSave = async () => {
         }
     ];
 
-    // --- RETRY LOOP ---
-    const MAX_RETRIES = 10;
-    const RETRY_DELAY_MS = 5000; // 5 detik
+    // --- LOOP SETUP ---
+    const LOOP_INTERVAL_MS = 30 * 1000; // 30 Detik
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        console.log(`[Attempt ${attempt}/${MAX_RETRIES}] Fetching data...`);
+    const runBot = async () => {
+        console.log(`\n⏰ [${new Date().toLocaleTimeString()}] Starting check...`);
+        let playerCount = 0;
+        let success = false;
 
-        for (let strategy of strategies) {
-            try {
-                playerCount = await strategy();
+        // Strategy: Direct Access (Proven Working)
+        try {
+            const r = await axios.get('https://growtopiagame.com/detail', {
+                headers: HEADERS,
+                timeout: 10000, // 10s timeout
+                validateStatus: () => true
+            });
+
+            if (r.status === 200 && r.data && r.data.online_user) {
+                playerCount = parseInt(r.data.online_user);
                 success = true;
-                console.log("✅ Success! Online Players:", playerCount);
-                break; // Break strategy loop
+                console.log("✅ LIVE: " + playerCount + " players online.");
+            } else if (typeof r.data === 'string' && r.data.includes('online_user')) {
+                // Fallback parsing for string response
+                try {
+                    const parsed = JSON.parse(r.data);
+                    if (parsed.online_user) {
+                        playerCount = parseInt(parsed.online_user);
+                        success = true;
+                        console.log("✅ LIVE: " + playerCount + " players online.");
+                    }
+                } catch (e) { }
+            }
+
+            if (!success) console.log(`⚠️ Failed to parse data. Status: ${r.status}`);
+
+        } catch (e) {
+            console.log(`❌ Connection Error: ${e.message}`);
+        }
+
+        // SAVE TO FIREBASE
+        if (success) {
+            try {
+                await addDoc(collection(db, "server_pings"), {
+                    online: playerCount,
+                    timestamp: serverTimestamp()
+                });
+                console.log("💾 Saved to Firebase.");
             } catch (e) {
-                console.log(`⚠️ Strategy failed: ${e.message}`);
+                console.error("❌ Firebase Save Error:", e.message);
             }
         }
+    };
 
-        if (success) break; // Break retry loop if successful
+    // First Run
+    runBot();
 
-        if (attempt < MAX_RETRIES) {
-            console.log(`❌ All strategies failed for attempt ${attempt}. Retrying in ${RETRY_DELAY_MS / 1000}s...`);
-            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-        } else {
-            console.error("❌ ALL RETRIES FAILED. Giving up.");
-        }
-    }
-    if (success) {
-        try {
-            console.log("Saving to Firestore...");
-            await addDoc(collection(db, "server_pings"), {
-                online: playerCount,
-                timestamp: serverTimestamp() // Gunakan server timestamp asli
-            });
-            console.log("✅ Data saved successfully!");
-        } catch (e) {
-            console.error("❌ Firestore Save Error:", e.message);
-            // Don't crash process, just log
-        }
-    } else {
-        console.error("❌ All fetch strategies failed.");
-    }
+    // Loop
+    setInterval(runBot, LOOP_INTERVAL_MS);
 
-    console.log("Bot finished.");
-    console.log("----------------------------------------");
-    process.exit(0);
+    console.log(`Generate status logger started... Running every ${LOOP_INTERVAL_MS / 1000}s`);
+    // Keep process alive
 };
 
 fetchAndSave();
