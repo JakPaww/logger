@@ -114,34 +114,22 @@ const fetchAndSave = async () => {
         let playerCount = 0;
         let success = false;
 
-        // Strategy: Direct Access (Proven Working)
-        try {
-            const r = await axios.get('https://growtopiagame.com/detail', {
-                headers: HEADERS,
-                timeout: 10000, // 10s timeout
-                validateStatus: () => true
-            });
-
-            if (r.status === 200 && r.data && r.data.online_user) {
-                playerCount = parseInt(r.data.online_user);
-                success = true;
-                console.log("✅ LIVE: " + playerCount + " players online.");
-            } else if (typeof r.data === 'string' && r.data.includes('online_user')) {
-                // Fallback parsing for string response
-                try {
-                    const parsed = JSON.parse(r.data);
-                    if (parsed.online_user) {
-                        playerCount = parseInt(parsed.online_user);
-                        success = true;
-                        console.log("✅ LIVE: " + playerCount + " players online.");
-                    }
-                } catch (e) { }
+        // Strategies Execution (Sequential)
+        for (let i = 0; i < strategies.length; i++) {
+            try {
+                playerCount = await strategies[i]();
+                if (playerCount > 0) {
+                    success = true;
+                    console.log(`✅ LIVE: ${playerCount} players online (Strategy ${i})`);
+                    break;
+                }
+            } catch (e) {
+                console.log(`Warning: Strategy ${i} failed (${e.message})`);
             }
+        }
 
-            if (!success) console.log(`⚠️ Failed to parse data. Status: ${r.status}`);
-
-        } catch (e) {
-            console.log(`❌ Connection Error: ${e.message}`);
+        if (!success) {
+            console.log("❌ All strategies failed.");
         }
 
         // SAVE TO FIREBASE
