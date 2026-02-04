@@ -2,7 +2,7 @@ name: Server Logger Bot
 
 on:
   schedule:
-    - cron: '*/10 * * * *' # Jalan tiap 15 menit
+    - cron: '*/15 * * * *' # Jalan tiap 15 menit
   workflow_dispatch: # Bisa dijalankan manual
 
 jobs:
